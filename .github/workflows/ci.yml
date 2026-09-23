@@ -1,0 +1,48 @@
+# This repository is generated from Vele189/ClearSkies, and the authoritative
+# suite runs there -- including everything that needs a real PostGIS and the
+# migration round-trip from empty. What this one proves is that the split left a
+# repository which installs, checks and builds an image that answers.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy app tests
+      # The spatial tests skip without CLEARSKIES_TEST_DATABASE_URL, which is
+      # not set here: they need the database image, which lives in the monorepo.
+      - run: python -m pytest -q
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t clearskies-api:ci .
+      # No database: the API serves /health while the pool is down on purpose,
+      # reporting `degraded`, and that is what makes this a smoke test of the
+      # image rather than of Postgres.
+      - name: The image serves /health
+        run: |
+          docker run -d --name api-ci -p 8000:8000 \
+            -e DB_CONNECT_TIMEOUT=1 -e LOG_FORMAT=text clearskies-api:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8000/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8000/health | tee /dev/stderr | grep -q '"database":"unavailable"'
+          docker rm -f api-ci

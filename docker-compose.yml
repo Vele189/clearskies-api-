@@ -1,0 +1,54 @@
+# The API, and optionally a database to point it at.
+services:
+  api:
+    build:
+      context: .
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # `db`, not localhost: inside the compose network that is the hostname.
+      # Point this at a Neon branch instead and the db service below can stay
+      # down -- nothing here depends on it starting.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://clearskies:clearskies@db:5432/clearskies}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PILOT_STATE: ${PILOT_STATE:-LA}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DRAFT_MODEL: ${DRAFT_MODEL:-gpt-4o}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+    # No depends_on: the API serves /health while the database is unavailable on
+    # purpose, and requiring the container would stop it starting against Neon.
+
+  db:
+    # Behind a profile, so `docker compose up` starts the API alone and a
+    # deployment's database is never accidentally a container.
+    #
+    # Built from the monorepo over git rather than from a copy of the Dockerfile
+    # kept here: there is one image compiling h3-pg and one place to change it.
+    # The build needs network access, and credentials if that repository is
+    # private -- `make up` in a monorepo checkout is the offline path.
+    profiles: ["db"]
+    build:
+      context: https://github.com/Vele189/ClearSkies.git#master:infra/postgres
+      args:
+        H3_PG_REF: ${H3_PG_REF:-refs/tags/v4.2.3}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-clearskies}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clearskies}
+      POSTGRES_DB: ${POSTGRES_DB:-clearskies}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 matters: during initdb the entrypoint runs a temporary
+      # server on the local socket only, so a socket check reports ready while
+      # the init scripts are still running.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-clearskies} -d ${POSTGRES_DB:-clearskies}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

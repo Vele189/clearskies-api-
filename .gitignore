@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Named rather than `*.local`, which would also hide any source file that
+# happened to end that way.
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+.idea/
+.vscode/
