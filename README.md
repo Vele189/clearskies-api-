@@ -76,6 +76,47 @@ docker run --rm -e DATABASE_URL_UNPOOLED=... clearskies-api python -m app.migrat
 
 Nothing applies them at startup.
 
+## Deploying to Railway
+
+`railway.json` tells Railway to build the Dockerfile and to wait for `/health`
+before switching traffic. `/health` answers 200 while the database is down, so
+a green deploy proves the process is serving; read the response body to see
+whether the database and its extensions are there.
+
+**The database cannot be Railway's stock Postgres.** Migration 0001 creates the
+`h3` extension, which no managed Postgres ships. Run the `clearskies-db`
+repository's image as its own service:
+
+1. New service from `clearskies-db`, named `db`, with a volume at
+   `/var/lib/postgresql/data`. Its README lists the variables. The first build
+   compiles h3-pg and takes several minutes.
+2. New service from this repository, named `api`. Variables:
+
+   ```
+   DATABASE_URL=postgresql://clearskies:${{db.POSTGRES_PASSWORD}}@${{db.RAILWAY_PRIVATE_DOMAIN}}:5432/clearskies
+   CORS_ORIGINS=https://${{web.RAILWAY_PUBLIC_DOMAIN}}
+   LOG_FORMAT=json
+   PILOT_STATE=LA
+   OPENAI_API_KEY=            # optional; /draft answers 503 without it
+   ```
+
+   Generate a public domain under Settings > Networking. Leave the CDN off:
+   `/draft` returns a document generated per request, and an edge cache in
+   front of it risks serving one request's output to another.
+3. Apply the migrations once the `api` deploy is up, from inside Railway's
+   network where the private domain resolves:
+
+   ```
+   railway ssh --service api -- python -m app.migrate up
+   railway ssh --service api -- python -m app.migrate verify
+   ```
+
+   `railway run` would run the command on this machine, where
+   `db.railway.internal` does not resolve.
+
+`${{web.RAILWAY_PUBLIC_DOMAIN}}` is empty until `web` has a public domain. If
+`web` gets its domain after `api` deploys, redeploy `api`.
+
 ## What CI here does and does not do
 
 Lint, typecheck, the tests that need no database, and a build of the image
