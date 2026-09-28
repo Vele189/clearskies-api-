@@ -31,6 +31,15 @@ deliberate rather than an oversight:
 
 ## Running it
 
+The quick way, with Docker and a `clearskies-db` checkout beside this one:
+
+```
+./start.sh          # builds, starts the database, applies migrations, runs the API on :8000
+./start.sh down     # stops both; the database volume is kept
+```
+
+Without Docker for the API:
+
 ```
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 cp .env.example .env      # at least DATABASE_URL
