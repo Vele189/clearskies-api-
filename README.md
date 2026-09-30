@@ -26,12 +26,11 @@ deliberate rather than an oversight:
 | The scoring package | `scoring/` | Nothing here imports it. Scores are computed by the pipeline and written to the database. |
 | The ingestion pipeline | `etl/` | Same: it writes, this reads. |
 | The statute corpus build | `assistant/` | Builds and seals corpus versions. This service only retrieves from the sealed ones. |
-| The local database image | `infra/postgres/` | One Dockerfile compiling h3-pg, in one place. The compose file here builds it from the monorepo over git. |
 | `check_requirements_sync.py` | `scripts/` | Runs in the monorepo's CI, over both files at once. |
 
 ## Running it
 
-The quick way, with Docker and a `clearskies-db` checkout beside this one:
+The quick way, with Docker:
 
 ```
 ./start.sh          # builds, starts the database, applies migrations, runs the API on :8000
@@ -51,8 +50,9 @@ database is reachable and which Postgres extensions are actually loaded, which
 is the cheap way to tell a custom image from a stock Postgres — the single most
 likely thing to be silently wrong about this stack.
 
-A database is `docker compose up -d db` here, or `make up` in the monorepo, or a
-Neon branch. Migrations are applied by hand, never at startup:
+A database is `docker compose --profile db up -d db` here, or a Neon branch.
+`start.sh` applies migrations; otherwise they are applied by hand, never at
+API startup:
 
 ```
 python -m app.migrate up        # uses DATABASE_URL_UNPOOLED when it is set
@@ -85,6 +85,22 @@ docker run --rm -e DATABASE_URL_UNPOOLED=... clearskies-api python -m app.migrat
 
 Nothing applies them at startup.
 
+## The database image
+
+`db/` is Postgres 17 with PostGIS, h3 (h3-pg, built from source) and pgvector.
+h3-pg is why it is a custom image: no managed Postgres offers it, and migration
+0001 creates it. The first build compiles the H3 C library and takes several
+minutes.
+
+- h3-pg is fetched from `postgis/h3-pg`. The old `zachasme/h3-pg` URL is a 404,
+  because the project moved and codeload does not follow the redirect.
+- `PGDATA` is a subdirectory of `/var/lib/postgresql/data`. A Railway volume's
+  root holds `lost+found`, and initdb refuses a data directory that is not
+  empty.
+- `POSTGRES_PASSWORD` is read only when the data directory is first created.
+  Changing the variable later does not change the password; run `ALTER USER`,
+  then update the variable to match.
+
 ## Deploying to Railway
 
 `railway.json` tells Railway to build the Dockerfile and to wait for `/health`
@@ -93,13 +109,19 @@ a green deploy proves the process is serving; read the response body to see
 whether the database and its extensions are there.
 
 **The database cannot be Railway's stock Postgres.** Migration 0001 creates the
-`h3` extension, which no managed Postgres ships. Run the `clearskies-db`
-repository's image as its own service:
+`h3` extension, which no managed Postgres ships. Both services come from this
+repository:
 
-1. New service from `clearskies-db`, named `db`, with a volume at
-   `/var/lib/postgresql/data`. Its README lists the variables. The first build
-   compiles h3-pg and takes several minutes.
-2. New service from this repository, named `api`. Variables:
+1. New service from this repository, named `db`.
+   - Settings > Source: Root Directory `/db`. `db/railway.json` builds its
+     Dockerfile and redeploys only on changes under `db/`.
+   - Attach a volume at `/var/lib/postgresql/data`. Without one, every
+     redeploy starts from an empty database.
+   - Variables: `POSTGRES_USER=clearskies`, `POSTGRES_DB=clearskies`,
+     `POSTGRES_PASSWORD=<a long random value>`.
+   - No public domain. The API reaches it at `db.railway.internal:5432`.
+2. New service from this repository, named `api`, Root Directory `/`.
+   Variables:
 
    ```
    DATABASE_URL=postgresql://clearskies:${{db.POSTGRES_PASSWORD}}@${{db.RAILWAY_PRIVATE_DOMAIN}}:5432/clearskies

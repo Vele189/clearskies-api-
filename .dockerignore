@@ -23,3 +23,7 @@ tests/
 
 Dockerfile
 .dockerignore
+
+# The database image is built from db/ as its own service; the API image
+# needs none of it.
+db/

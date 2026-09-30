@@ -4,9 +4,8 @@
 #   ./start.sh          build, start db, apply migrations, run the API in the foreground
 #   ./start.sh down     stop both (the database volume is kept)
 #
-# The database image is built from ../clearskies-db; set DB_BUILD_CONTEXT to
-# build it from somewhere else. Ports and credentials come from .env when one
-# exists (see .env.example). Ctrl-C stops the API and the database.
+# The database image is built from db/. Ports and credentials come from .env
+# when one exists (see .env.example). Ctrl-C stops the API and the database.
 
 set -euo pipefail
 
@@ -19,13 +18,6 @@ compose() {
 if [[ "${1:-}" == "down" ]]; then
   compose down
   exit 0
-fi
-
-db_context="${DB_BUILD_CONTEXT:-../clearskies-db}"
-if [[ "$db_context" != *://* && ! -f "$db_context/Dockerfile" ]]; then
-  echo "No database Dockerfile at $db_context." >&2
-  echo "Clone clearskies-db beside this repository, or set DB_BUILD_CONTEXT." >&2
-  exit 1
 fi
 
 port_busy() {

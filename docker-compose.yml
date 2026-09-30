@@ -24,13 +24,10 @@ services:
     # Behind a profile, so `docker compose up` starts the API alone and a
     # deployment's database is never accidentally a container.
     #
-    # Built from a clearskies-db checkout beside this one rather than from a
-    # copy of the Dockerfile kept here: there is one image compiling h3-pg and
-    # one place to change it. DB_BUILD_CONTEXT points elsewhere, including at a
-    # git URL.
+    # Built from db/, the same image Railway runs as the db service.
     profiles: ["db"]
     build:
-      context: ${DB_BUILD_CONTEXT:-../clearskies-db}
+      context: ./db
       args:
         H3_PG_REF: ${H3_PG_REF:-refs/tags/v4.2.3}
     environment:
