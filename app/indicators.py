@@ -1,4 +1,4 @@
-"""The fifteen indicators defined in docs/methodology.md section 8.
+"""The eighteen indicators defined in docs/methodology.md section 8.
 
 This registry is the single place the indicator set is declared. The API, the
 scoring engine, and the frontend all read names, units, and group membership
@@ -48,7 +48,7 @@ COMPONENT_GROUPS: dict[Component, tuple[Group, ...]] = {
 GROUP_MINIMUM_PRESENT: dict[Group, int] = {
     Group.EXPOSURES: 2,
     Group.ENVIRONMENTAL_EFFECTS: 2,
-    Group.SENSITIVE_POPULATIONS: 1,
+    Group.SENSITIVE_POPULATIONS: 3,
     Group.SOCIOECONOMIC_FACTORS: 4,
 }
 
@@ -150,6 +150,32 @@ INDICATORS: tuple[Indicator, ...] = (
         "Share of population 65 and over.",
     ),
     Indicator(
+        "S3",
+        "Asthma",
+        Group.SENSITIVE_POPULATIONS,
+        "percent of adults",
+        "CDC PLACES",
+        "Modeled prevalence of current asthma among adults. A model estimate, not a count.",
+    ),
+    Indicator(
+        "S4",
+        "COPD",
+        Group.SENSITIVE_POPULATIONS,
+        "percent of adults",
+        "CDC PLACES",
+        "Modeled prevalence of chronic obstructive pulmonary disease among adults. "
+        "A model estimate, not a count.",
+    ),
+    Indicator(
+        "S5",
+        "Coronary heart disease",
+        Group.SENSITIVE_POPULATIONS,
+        "percent of adults",
+        "CDC PLACES",
+        "Modeled prevalence of coronary heart disease among adults. A model estimate, "
+        "not a count.",
+    ),
+    Indicator(
         "P1",
         "Poverty",
         Group.SOCIOECONOMIC_FACTORS,
@@ -187,7 +213,7 @@ INDICATORS: tuple[Indicator, ...] = (
         Group.SOCIOECONOMIC_FACTORS,
         "percent",
         "US Census ACS",
-        "Share of low-income households paying over 50 percent of income on housing.",
+        "Share of low-income households paying 30 percent or more of income on housing.",
     ),
 )
 
@@ -202,9 +228,10 @@ BY_ID: dict[str, Indicator] = {i.id: i for i in INDICATORS}
 # are only aligned as long as every Indicator.source appears here, which
 # tests/test_indicators.py asserts.
 #
-# The last three back no indicator. Geography and toxicity weights are inputs
-# to indicators rather than indicators themselves, and a reader asking which
-# tract boundaries produced a hex is asking a fair question.
+# Three of these back no indicator: census_tract, census_block and rsei.
+# Geography and toxicity weights are inputs to indicators rather than
+# indicators themselves, and a reader asking which tract boundaries produced a
+# hex is asking a fair question.
 SOURCE_NAMES: dict[str, str] = {
     "echo": "EPA ECHO",
     "tri": "EPA TRI",
@@ -214,6 +241,7 @@ SOURCE_NAMES: dict[str, str] = {
     "census_tract": "US Census TIGER tracts",
     "census_block": "US Census 2020 PL 94-171 blocks",
     "rsei": "EPA RSEI",
+    "places": "CDC PLACES",
 }
 
 # The column on hex_score holding each group's mean percentile. The score is

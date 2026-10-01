@@ -2,12 +2,12 @@
 
 The panel shows a number and the argument for it in the same view, so this
 assembles both in one pass: the score, the two components decomposed into
-their groups, all fifteen indicators whether or not they were observed, the
+their groups, all eighteen indicators whether or not they were observed, the
 four-term confidence breakdown, the demographics that are displayed and never
 scored, and the facilities near enough to have contributed.
 
 Three round trips on one connection. The score, the hex and the demographics
-share a grain and are joined in the database; the indicators are fifteen rows;
+share a grain and are joined in the database; the indicators are eighteen rows;
 the facilities are a geography query the database is indexed for. Everything
 else the payload needs is the run context, which is the same for every hexagon
 in a run and is cached in app/runs.py.
@@ -94,7 +94,7 @@ CORE = """
 """
 
 # Reads the (run_id, h3) prefix of the primary key, so this is an index scan
-# returning at most fifteen rows.
+# returning at most eighteen rows.
 INDICATOR_VALUES = """
     SELECT indicator_id, value, percentile, observed
       FROM hex_indicator
@@ -118,7 +118,7 @@ def _float(value: Any) -> float | None:
 
 
 def build_indicators(rows: list[Any]) -> list[IndicatorValue]:
-    """All fifteen, in registry order, present or not.
+    """All eighteen, in registry order, present or not.
 
     An indicator absent from this run has no row at all, and it is still
     rendered, as an indicator that was dropped rather than one that scored

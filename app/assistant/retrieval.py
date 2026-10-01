@@ -36,7 +36,8 @@ EMBEDDING_DIMENSIONS = 1024
 
 DEFAULT_LIMIT = 8
 
-# Cosine distance, matching the hnsw vector_cosine_ops index. Above this a
+# Cosine distance, the same metric the vector_cosine_ops index used before
+# migration 0029 dropped it for an exact scan. Above this a
 # passage is not about the question: returning it anyway gives the model
 # plausible-looking text to cite for a claim it does not support, which is
 # worse than returning less.
