@@ -16,13 +16,13 @@ from app.indicators import (
 EXPECTED_PER_GROUP = {
     Group.EXPOSURES: 4,
     Group.ENVIRONMENTAL_EFFECTS: 4,
-    Group.SENSITIVE_POPULATIONS: 2,
+    Group.SENSITIVE_POPULATIONS: 5,
     Group.SOCIOECONOMIC_FACTORS: 5,
 }
 
 
 def test_indicator_set_matches_the_methodology() -> None:
-    assert len(INDICATORS) == 15
+    assert len(INDICATORS) == 18
     for group, expected in EXPECTED_PER_GROUP.items():
         assert len(in_group(group)) == expected, group
 

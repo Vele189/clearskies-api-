@@ -9,6 +9,7 @@ until somebody runs the whole pipeline.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 from pathlib import Path
@@ -106,3 +107,14 @@ async def test_an_unscored_hex_is_exported_with_its_reason(export: ModuleType) -
     )
 
     assert payload["hexes"]["88444600d9fffff"] == {"no_score_reason": "low_population"}
+
+
+def test_areal_alone_is_refused_rather_than_ignored(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The counterpart only means something beside the robustness export it is
+    # compared with; on its own the flag would silently write nothing extra.
+    monkeypatch.setattr(sys, "argv", ["export_run.py", "--validation", "out.json", "--areal"])
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(export.main())
+    assert raised.value.code == 2
