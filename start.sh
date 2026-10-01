@@ -1,50 +1,27 @@
 #!/usr/bin/env bash
-# Start the database and the API together, locally, in containers.
+# Run the API locally, in a container, against the Neon database.
 #
-#   ./start.sh          build, start db, apply migrations, run the API in the foreground
-#   ./start.sh down     stop both (the database volume is kept)
+#   ./start.sh          build and run the API in the foreground
+#   ./start.sh down     stop it
 #
-# The database image is built from db/. Ports and credentials come from .env
-# when one exists (see .env.example). Ctrl-C stops the API and the database.
+# DATABASE_URL (and DATABASE_URL_UNPOOLED, for migrations) come from .env (see
+# .env.example). Migrations are not applied here: the Neon branch is shared, so
+# they are applied deliberately with `python -m app.migrate up`.
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-compose() {
-  docker compose --profile db "$@"
-}
-
 if [[ "${1:-}" == "down" ]]; then
-  compose down
+  docker compose down
   exit 0
 fi
 
-port_busy() {
-  (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
-}
-
-# The API reaches the database over the compose network, so the host port is
-# only for psql from this machine. When another Postgres already holds 5432,
-# take the next free port rather than fail. An explicit POSTGRES_PORT, from the
-# environment or .env, is left alone.
-if [[ -z "${POSTGRES_PORT:-}" ]] && ! grep -q '^POSTGRES_PORT=' .env 2>/dev/null; then
-  port=5432
-  while port_busy "$port"; do port=$((port + 1)); done
-  export POSTGRES_PORT="$port"
+if [[ -z "${DATABASE_URL:-}" ]] && ! grep -q '^DATABASE_URL=.' .env 2>/dev/null; then
+  echo "error: DATABASE_URL is not set. Put the Neon pooled URL in .env." >&2
+  exit 1
 fi
 
-echo "==> Building images"
-compose build
-
-echo "==> Starting the database (localhost:${POSTGRES_PORT:-5432})"
-compose up --detach --wait db
-
-# Migrations are idempotent: already-applied ones are skipped, and an edited
-# one stops the script rather than starting an API on a schema it disagrees with.
-echo "==> Applying migrations"
-compose run --rm --no-deps api python -m app.migrate up
-
 echo "==> Starting the API on http://localhost:${API_PORT:-8000}"
-trap 'compose stop' EXIT
-compose up api
+trap 'docker compose stop' EXIT
+docker compose up --build api

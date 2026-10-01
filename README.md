@@ -30,29 +30,31 @@ deliberate rather than an oversight:
 
 ## Running it
 
-The quick way, with Docker:
+The database is a Neon branch that already holds the schema and the data.
+There is no local or self-hosted database.
+
+With Docker:
 
 ```
-./start.sh          # builds, starts the database, applies migrations, runs the API on :8000
-./start.sh down     # stops both; the database volume is kept
+cp .env.example .env      # DATABASE_URL (pooled) and DATABASE_URL_UNPOOLED (direct) from Neon
+./start.sh                # builds and runs the API on :8000
+./start.sh down           # stops it
 ```
 
-Without Docker for the API:
+Without Docker:
 
 ```
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env      # at least DATABASE_URL
+cp .env.example .env
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 `http://localhost:8000/docs` is the schema. `/health` answers whether the
-database is reachable and which Postgres extensions are actually loaded, which
-is the cheap way to tell a custom image from a stock Postgres — the single most
-likely thing to be silently wrong about this stack.
+database is reachable and which Postgres extensions are loaded (PostGIS, h3,
+pgvector).
 
-A database is `docker compose --profile db up -d db` here, or a Neon branch.
-`start.sh` applies migrations; otherwise they are applied by hand, never at
-API startup:
+Migrations are applied by hand, never at API startup or by `start.sh`, because
+the Neon branch is shared:
 
 ```
 python -m app.migrate up        # uses DATABASE_URL_UNPOOLED when it is set
@@ -85,22 +87,6 @@ docker run --rm -e DATABASE_URL_UNPOOLED=... clearskies-api python -m app.migrat
 
 Nothing applies them at startup.
 
-## The database image
-
-`db/` is Postgres 17 with PostGIS, h3 (h3-pg, built from source) and pgvector.
-h3-pg is why it is a custom image: no managed Postgres offers it, and migration
-0001 creates it. The first build compiles the H3 C library and takes several
-minutes.
-
-- h3-pg is fetched from `postgis/h3-pg`. The old `zachasme/h3-pg` URL is a 404,
-  because the project moved and codeload does not follow the redirect.
-- `PGDATA` is a subdirectory of `/var/lib/postgresql/data`. A Railway volume's
-  root holds `lost+found`, and initdb refuses a data directory that is not
-  empty.
-- `POSTGRES_PASSWORD` is read only when the data directory is first created.
-  Changing the variable later does not change the password; run `ALTER USER`,
-  then update the variable to match.
-
 ## Deploying to Railway
 
 `railway.json` tells Railway to build the Dockerfile and to wait for `/health`
@@ -108,42 +94,24 @@ before switching traffic. `/health` answers 200 while the database is down, so
 a green deploy proves the process is serving; read the response body to see
 whether the database and its extensions are there.
 
-**The database cannot be Railway's stock Postgres.** Migration 0001 creates the
-`h3` extension, which no managed Postgres ships. Both services come from this
-repository:
+The database is Neon, not a Railway service. Create one service from this
+repository, named `api`, Root Directory `/`, with these variables:
 
-1. New service from this repository, named `db`.
-   - Settings > Source: Root Directory `/db`. `db/railway.json` builds its
-     Dockerfile and redeploys only on changes under `db/`.
-   - Attach a volume at `/var/lib/postgresql/data`. Without one, every
-     redeploy starts from an empty database.
-   - Variables: `POSTGRES_USER=clearskies`, `POSTGRES_DB=clearskies`,
-     `POSTGRES_PASSWORD=<a long random value>`.
-   - No public domain. The API reaches it at `db.railway.internal:5432`.
-2. New service from this repository, named `api`, Root Directory `/`.
-   Variables:
+```
+DATABASE_URL=<Neon pooled connection string, host contains -pooler>
+DATABASE_URL_UNPOOLED=<Neon direct connection string>
+CORS_ORIGINS=https://${{web.RAILWAY_PUBLIC_DOMAIN}}
+LOG_FORMAT=json
+PILOT_STATE=LA
+OPENAI_API_KEY=            # optional; /draft answers 503 without it
+```
 
-   ```
-   DATABASE_URL=postgresql://clearskies:${{db.POSTGRES_PASSWORD}}@${{db.RAILWAY_PRIVATE_DOMAIN}}:5432/clearskies
-   CORS_ORIGINS=https://${{web.RAILWAY_PUBLIC_DOMAIN}}
-   LOG_FORMAT=json
-   PILOT_STATE=LA
-   OPENAI_API_KEY=            # optional; /draft answers 503 without it
-   ```
+Generate a public domain under Settings > Networking. Leave the CDN off:
+`/draft` returns a document generated per request, and an edge cache in front
+of it risks serving one request's output to another.
 
-   Generate a public domain under Settings > Networking. Leave the CDN off:
-   `/draft` returns a document generated per request, and an edge cache in
-   front of it risks serving one request's output to another.
-3. Apply the migrations once the `api` deploy is up, from inside Railway's
-   network where the private domain resolves:
-
-   ```
-   railway ssh --service api -- python -m app.migrate up
-   railway ssh --service api -- python -m app.migrate verify
-   ```
-
-   `railway run` would run the command on this machine, where
-   `db.railway.internal` does not resolve.
+Neon is reachable from anywhere, so migrations run from any machine with
+`DATABASE_URL_UNPOOLED` set: `python -m app.migrate verify`.
 
 `${{web.RAILWAY_PUBLIC_DOMAIN}}` is empty until `web` has a public domain. If
 `web` gets its domain after `api` deploys, redeploy `api`.
