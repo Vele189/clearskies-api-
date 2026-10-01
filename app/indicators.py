@@ -172,8 +172,7 @@ INDICATORS: tuple[Indicator, ...] = (
         Group.SENSITIVE_POPULATIONS,
         "percent of adults",
         "CDC PLACES",
-        "Modeled prevalence of coronary heart disease among adults. A model estimate, "
-        "not a count.",
+        "Modeled prevalence of coronary heart disease among adults. A model estimate, not a count.",
     ),
     Indicator(
         "P1",
