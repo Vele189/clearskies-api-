@@ -1,4 +1,4 @@
-"""The fifteen indicators defined in docs/methodology.md section 8.
+"""The seventeen indicators defined in docs/methodology.md section 8.
 
 This registry is the single place the indicator set is declared. The API, the
 scoring engine, and the frontend all read names, units, and group membership
@@ -48,7 +48,7 @@ COMPONENT_GROUPS: dict[Component, tuple[Group, ...]] = {
 GROUP_MINIMUM_PRESENT: dict[Group, int] = {
     Group.EXPOSURES: 2,
     Group.ENVIRONMENTAL_EFFECTS: 2,
-    Group.SENSITIVE_POPULATIONS: 1,
+    Group.SENSITIVE_POPULATIONS: 2,
     Group.SOCIOECONOMIC_FACTORS: 4,
 }
 
@@ -134,6 +134,14 @@ INDICATORS: tuple[Indicator, ...] = (
         "Distance-decayed count of RCRA large-quantity generators and TSD facilities.",
     ),
     Indicator(
+        "F5",
+        "Contaminated land proximity",
+        Group.ENVIRONMENTAL_EFFECTS,
+        "weighted count",
+        "EPA SEMS",
+        "Distance-decayed count of Superfund sites on the Final NPL or proposed for it.",
+    ),
+    Indicator(
         "S1",
         "Young children",
         Group.SENSITIVE_POPULATIONS,
@@ -148,6 +156,14 @@ INDICATORS: tuple[Indicator, ...] = (
         "percent",
         "US Census ACS",
         "Share of population 65 and over.",
+    ),
+    Indicator(
+        "S3",
+        "Disability",
+        Group.SENSITIVE_POPULATIONS,
+        "percent",
+        "US Census ACS",
+        "Share of the civilian non-institutionalized population with a disability.",
     ),
     Indicator(
         "P1",
@@ -211,6 +227,7 @@ SOURCE_NAMES: dict[str, str] = {
     "airtoxscreen": "EPA AirToxScreen",
     "openaq": "OpenAQ",
     "acs": "US Census ACS",
+    "sems": "EPA SEMS",
     "census_tract": "US Census TIGER tracts",
     "census_block": "US Census 2020 PL 94-171 blocks",
     "rsei": "EPA RSEI",
